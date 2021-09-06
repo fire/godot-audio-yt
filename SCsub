@@ -1,0 +1,14 @@
+#!/usr/bin/env python
+
+Import("env")
+Import("env_modules")
+
+env_gdaudioyt = env_modules.Clone()
+
+env_gdaudioyt.add_source_files(env.modules_sources, "*.cpp")
+env_gdaudioyt.add_source_files(env.modules_sources, "audio/*.cpp")
+env_gdaudioyt.add_source_files(env.modules_sources, "ebml/*.cpp")
+env_gdaudioyt.add_source_files(env.modules_sources, "webm/*.cpp")
+
+env_gdaudioyt.Prepend(CPPPATH=["#modules/gdaudioyt"])
+env_gdaudioyt.Prepend(CPPPATH=["#thirdparty/opus"])

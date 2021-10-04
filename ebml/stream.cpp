@@ -65,7 +65,7 @@ ebml::ElementRange::Searcher::Searcher(const ElementRange &p_range) : range(p_ra
 }
 
 ebml::ElementRange::Searcher::~Searcher() {
-	for(const Element * const &element : element_list) {
+	for(const Element * const element : element_list) {
 		delete element;
 	}
 }
@@ -135,22 +135,19 @@ void ebml::Stream::read_element(uint64_t &p_pos, const Element *&r_element) {
 		} break;
 		case ELEMENT_TYPE_STRING:
 		case ELEMENT_TYPE_UNICODE: {
-			char * const &value = new char[size + 1];
-			read((uint8_t *)value, pos, size);
-			value[size] = 0;
-			element = new ElementString(reg, p_pos, value, size + 1);
+			uint8_t * const data = new uint8_t[size];
+			read(data, pos, size);
+			const std::string value((const char *)data);
+			element = new ElementString(reg, p_pos, value);
 		} break;
 		case ELEMENT_TYPE_BINARY: {
-			uint8_t * const &value = new uint8_t[size];
-			read(value, pos, size);
-			element = new ElementBinary(reg, p_pos, value, size);
+			uint8_t * const data = new uint8_t[size];
+			read(data, pos, size);
+			element = new ElementBinary(reg, p_pos, data, size);
 		} break;
 		case ELEMENT_TYPE_FLOAT: {
 			double value;
 			switch(size) {
-				case 0: {
-					value = 0.0;
-				} break;
 				case 4: {
 					uint8_t data[4];
 					float result;
@@ -169,6 +166,9 @@ void ebml::Stream::read_element(uint64_t &p_pos, const Element *&r_element) {
 					
 					value = result;
 				} break;
+				default: {
+					value = 0.0;
+				}
 			}
 			element = new ElementFloat(reg, p_pos, value);
 		} break;

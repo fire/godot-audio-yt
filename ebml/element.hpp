@@ -72,8 +72,7 @@ struct ElementInt : public Element {
 };
 
 struct ElementString : public Element {
-	const char * const value;
-	const uint64_t size;
+	const std::string value;
 	
 	void debug_print() const {
 		std::cout<<"\"name\": \""<<reg.name<<"\", \"value\": \""<<value<<"\"";
@@ -82,13 +81,10 @@ struct ElementString : public Element {
 	ElementString(
 		const ElementRegister p_reg,
 		const uint64_t p_pos,
-		const char * const p_value,
-		const uint64_t p_size
-	) : Element(p_reg, p_pos), value(p_value), size(p_size) {}
+		const std::string p_value
+	) : Element(p_reg, p_pos), value(p_value) {}
 	
-	~ElementString() {
-		delete[] value;
-	}
+	~ElementString() {}
 };
 
 struct ElementBinary : public Element {

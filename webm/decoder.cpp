@@ -61,7 +61,7 @@ void webm::Decoder::debug_print_element(const ebml::Element * const p_element) {
 		std::cout<<", \"children\": [";
 		
 		bool first = true;
-		for(const ebml::Element * const &child : stream->range(e)) {
+		for(const ebml::Element * const child : stream->range(e)) {
 			if(!first) {
 				std::cout<<", ";
 			}
@@ -83,15 +83,15 @@ double webm::Decoder::get_time(const uint64_t p_time_scale, const double p_raw_t
 void webm::Decoder::load_headers() {
 	// INFO ELEMENTS (TIMECODE SCALE, DURATION)
 	auto parse_segment_info = [&](
-		const ebml::ElementMaster * const &p_info,
+		const ebml::ElementMaster * const p_info,
 		uint64_t &r_time_scale,
 		double &r_duration
 	) {
 		auto search = stream->range(p_info).search();
 		
-		const auto &time_scale = search.get<ELEMENT_TIMECODE_SCALE, ebml::ElementUint>();
+		const auto time_scale = search.get<ELEMENT_TIMECODE_SCALE, ebml::ElementUint>();
 		if(time_scale == nullptr) return;
-		const auto &duration = search.get<ELEMENT_DURATION, ebml::ElementFloat>();
+		const auto duration = search.get<ELEMENT_DURATION, ebml::ElementFloat>();
 		if(duration == nullptr) return;
 		
 		r_time_scale = time_scale->value;
@@ -100,12 +100,12 @@ void webm::Decoder::load_headers() {
 	
 	// TRACK ELEMENTS
 	auto parse_segment_tracks = [&](
-		const ebml::ElementMaster * const &p_tracks,
+		const ebml::ElementMaster * const p_tracks,
 		uint64_t &r_number,
 		double &r_sampling_rate,
 		uint64_t &r_channels
 	) {
-		for(const ebml::Element * const &track : stream->range(p_tracks)) {
+		for(const ebml::Element * const track : stream->range(p_tracks)) {
 			if(track->reg.id != ELEMENT_TRACK_ENTRY) {
 #ifdef __EXCEPTIONS
 				throw std::runtime_error("Tracks element is not a TrackEntry.");
@@ -113,25 +113,24 @@ void webm::Decoder::load_headers() {
 				continue;
 #endif
 			}
-			const auto &t = (const ebml::ElementMaster *)track;
+			const auto t = (const ebml::ElementMaster *)track;
 			
 			auto search = stream->range(t).search();
 			
-			const auto &codec_id = search.get<ELEMENT_CODEC_ID, ebml::ElementString>();
+			const auto codec_id = search.get<ELEMENT_CODEC_ID, ebml::ElementString>();
 			if(codec_id == nullptr) continue;
 			
-			const std::string &id(codec_id->value);
-			if(id == "A_OPUS") {
-				const auto &number = search.get<ELEMENT_TRACK_NUMBER, ebml::ElementUint>();
+			if(codec_id->value == "A_OPUS") {
+				const auto number = search.get<ELEMENT_TRACK_NUMBER, ebml::ElementUint>();
 				if(number == nullptr) continue;
-				const auto &audio = search.get<ELEMENT_AUDIO, ebml::ElementMaster>();
+				const auto audio = search.get<ELEMENT_AUDIO, ebml::ElementMaster>();
 				if(audio == nullptr) continue;
 				
 				auto search_audio = stream->range(audio).search();
 				
-				const auto &sampling_rate = search_audio.get<ELEMENT_SAMPLING_FREQUENCY, ebml::ElementFloat>();
+				const auto sampling_rate = search_audio.get<ELEMENT_SAMPLING_FREQUENCY, ebml::ElementFloat>();
 				if(sampling_rate == nullptr) continue;
-				const auto &channels = search_audio.get<ELEMENT_CHANNELS, ebml::ElementUint>();
+				const auto channels = search_audio.get<ELEMENT_CHANNELS, ebml::ElementUint>();
 				if(channels == nullptr) continue;
 				
 				r_number = number->value;
@@ -153,11 +152,11 @@ void webm::Decoder::load_headers() {
 	
 	// CUES ELEMENTS (CUE TIME, CUE TRACK POSITIONS)
 	auto parse_segment_cues = [&](
-		const ebml::ElementMaster * const &p_segment,
-		const ebml::ElementMaster * const &p_cues,
+		const ebml::ElementMaster * const p_segment,
+		const ebml::ElementMaster * const p_cues,
 		std::vector<RawCuePoint> &r_items
 	) {
-		for(const ebml::Element * const &cue : stream->range(p_cues)) {
+		for(const ebml::Element * const cue : stream->range(p_cues)) {
 			if(cue->reg.id != ELEMENT_CUE_POINT) {
 #ifdef __EXCEPTIONS
 				throw std::runtime_error("Cues element is not a CuePoint.");
@@ -165,14 +164,14 @@ void webm::Decoder::load_headers() {
 				continue;
 #endif
 			}
-			const auto &c = (const ebml::ElementMaster *)cue;
+			const auto c = (const ebml::ElementMaster *)cue;
 			
 			auto search = stream->range(c).search();
-			const auto &cue_time = search.get<ELEMENT_CUE_TIME, ebml::ElementUint>();
-			const auto &track_positions = search.get<ELEMENT_CUE_TRACK_POSITIONS, ebml::ElementMaster>();
+			const auto cue_time = search.get<ELEMENT_CUE_TIME, ebml::ElementUint>();
+			const auto track_positions = search.get<ELEMENT_CUE_TRACK_POSITIONS, ebml::ElementMaster>();
 			
 			auto search_track_positions = stream->range(track_positions).search();
-			const auto &cluster_position = search_track_positions.get<ELEMENT_CUE_CLUSTER_POSITION, ebml::ElementUint>();
+			const auto cluster_position = search_track_positions.get<ELEMENT_CUE_CLUSTER_POSITION, ebml::ElementUint>();
 			
 			r_items.push_back(RawCuePoint{
 				.raw_time = cue_time->value,
@@ -188,7 +187,7 @@ void webm::Decoder::load_headers() {
 	
 	// SEEK HEAD
 	auto parse_seek_head = [&](const ebml::ElementMaster * const p_seek_head, std::vector<SeekItem> &r_items) {
-		for(const ebml::Element * const &seek : stream->range(p_seek_head)) {
+		for(const ebml::Element * const seek : stream->range(p_seek_head)) {
 			if(seek->reg.id != ELEMENT_SEEK) {
 #ifdef __EXCEPTIONS
 				throw std::runtime_error("SeekHead element is not a Seek.");
@@ -196,11 +195,11 @@ void webm::Decoder::load_headers() {
 				continue;
 #endif
 			}
-			const auto &s = (const ebml::ElementMaster *)seek;
+			const auto s = (const ebml::ElementMaster *)seek;
 			
 			auto search = stream->range(s).search();
-			const auto &seek_id = search.get<ELEMENT_SEEK_ID, ebml::ElementBinary>();
-			const auto &seek_position = search.get<ELEMENT_SEEK_POSITION, ebml::ElementUint>();
+			const auto seek_id = search.get<ELEMENT_SEEK_ID, ebml::ElementBinary>();
+			const auto seek_position = search.get<ELEMENT_SEEK_POSITION, ebml::ElementUint>();
 			
 			ebml::BufferStream id_stream(seek_id->data, seek_id->size);
 			
@@ -221,7 +220,7 @@ void webm::Decoder::load_headers() {
 		// iterate until we find it.
 		
 		auto search = stream->range(p_segment).search();
-		const auto &seek_head = search.get<ELEMENT_SEEK_HEAD, ebml::ElementMaster>();
+		const auto seek_head = search.get<ELEMENT_SEEK_HEAD, ebml::ElementMaster>();
 		
 		std::vector<SeekItem> seek_items;
 		parse_seek_head(seek_head, seek_items);
@@ -342,7 +341,7 @@ void webm::Decoder::load_headers() {
 	// MAIN ELEMENTS (EBML, SEGMENT)
 	auto parse_file = [&]() {
 		auto search = stream->range().search();
-		const auto &segment = search.get<ELEMENT_SEGMENT, ebml::ElementMaster>();
+		const auto segment = search.get<ELEMENT_SEGMENT, ebml::ElementMaster>();
 		parse_segment(segment);
 	};
 	
@@ -386,7 +385,7 @@ void webm::Decoder::thread_func() {
 	};
 	
 	auto read_cluster = [&](
-		const ebml::ElementMaster * const &p_cluster,
+		const ebml::ElementMaster * const p_cluster,
 		std::vector<const ebml::Element *> &r_blocks
 	) {
 #ifdef __EXCEPTIONS
@@ -615,7 +614,7 @@ void webm::Decoder::sample(
 			while(context.active_cluster < context.clusters.size()) {
 				const std::vector<const ebml::Element *> blocks = context.clusters[context.active_cluster];
 				if(context.active_block < blocks.size()) {
-					const ebml::Element * const &block = blocks[context.active_block];
+					const ebml::Element * const block = blocks[context.active_block];
 					const bool parse_flag = parse_block(block);
 					
 					++context.active_block;

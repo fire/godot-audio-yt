@@ -61,16 +61,16 @@ ebml::ElementRange::Iterator ebml::ElementRange::end() const {
 	return Iterator(stream, to, to);
 }
 
-ebml::ElementRange::Searcher::Searcher(const ElementRange &p_range) : range(p_range) {
+ebml::Searcher::Searcher(const ElementRange p_range) : range(p_range) {
 }
 
-ebml::ElementRange::Searcher::~Searcher() {
+ebml::Searcher::~Searcher() {
 	for(const Element * const element : element_list) {
 		delete element;
 	}
 }
 
-ebml::ElementRange::Searcher ebml::ElementRange::search() {
+ebml::Searcher ebml::ElementRange::search() const {
 	return Searcher(*this);
 }
 

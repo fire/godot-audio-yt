@@ -13,6 +13,7 @@
 namespace ebml {
 
 class Stream;
+class Searcher;
 
 /**
  * A range of bytes inside the stream. This is intended for iterating through elements.
@@ -20,6 +21,7 @@ class Stream;
  * @see Stream::range
  */
 class ElementRange {
+public:
 	Stream * const stream;
 	const uint64_t from;
 	const uint64_t to;
@@ -61,38 +63,6 @@ public:
 	Iterator end() const;
 	
 	/**
-	 * Allows directly searching for an element in this range based on their IDs.
-	 * 
-	 * @see ElementRange::search
-	 * @see get
-	 */
-	class Searcher {
-		const ElementRange &range;
-		
-		std::vector<const Element *> element_list;
-		uint64_t pos = range.from;
-		
-	public:
-		/**
-		 * Search for an element represented by its ID.
-		 * 
-		 * If the element is not found, an exception is thrown.
-		 * 
-		 * If the Searcher object is destroyed, all elements discovered with this method will be deleted.
-		 * 
-		 * @tparam ID The ID of the element to search for.
-		 * @tparam Type The type to cast the found element to.
-		 * @returns The found element.
-		 * @throws std::runtime_error If the element was not found.
-		 */
-		template <uint64_t ID, typename Type>
-		const Type *get();
-		
-		Searcher(const ElementRange &p_range);
-		~Searcher();
-	};
-	
-	/**
 	 * Create a new searcher object. This can be used to simplify the element searching process.
 	 * 
 	 * @see Searcher
@@ -100,9 +70,42 @@ public:
 	 * 
 	 * @returns A new searcher object.
 	 */
-	Searcher search();
+	Searcher search() const;
 	
 	ElementRange(Stream * const p_stream, const uint64_t p_from, const uint64_t p_to);
+};
+
+/**
+ * Allows directly searching for an element in this range based on their IDs.
+ * 
+ * @see ElementRange::search
+ * @see get
+ */
+class Searcher {
+public:
+	const ElementRange range;
+	
+	std::vector<const Element *> element_list;
+	uint64_t pos = range.from;
+	
+public:
+	/**
+	 * Search for an element represented by its ID.
+	 * 
+	 * If the element is not found, an exception is thrown.
+	 * 
+	 * If the Searcher object is destroyed, all elements discovered with this method will be deleted.
+	 * 
+	 * @tparam ID The ID of the element to search for.
+	 * @tparam Type The type to cast the found element to.
+	 * @returns The found element.
+	 * @throws std::runtime_error If the element was not found.
+	 */
+	template <uint64_t ID, typename Type>
+	const Type *get();
+	
+	Searcher(const ElementRange p_range);
+	~Searcher();
 };
 
 /**
@@ -222,7 +225,7 @@ void ebml::Stream::read_num(uint64_t &p_pos, T &r_result) {
 }
 
 template <uint64_t ID, typename Type>
-const Type *ebml::ElementRange::Searcher::get() {
+const Type *ebml::Searcher::get() {
 	for(const Element * const element : element_list) {
 		if(element->reg.id == ID) {
 			return (const Type *)element;
@@ -232,7 +235,6 @@ const Type *ebml::ElementRange::Searcher::get() {
 	while(pos < range.to) {
 		const Element *element;
 		range.stream->read_element(pos, element);
-		
 		element_list.push_back(element);
 		
 		if(element->reg.id == ID) {

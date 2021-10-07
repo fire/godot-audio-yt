@@ -27,10 +27,12 @@ struct ScramblerFunction {
 	
 	Type type;
 	int64_t index;
+	
+	ScramblerFunction(const Type p_type, const int64_t p_index) : type(p_type), index(p_index) {}
 };
 
 static Mutex scrambler_cache_mutex;
-static Vector<ScramblerFunction> scrambler_cache;
+static std::vector<ScramblerFunction> scrambler_cache;
 
 struct PlayerResponse {
 	String player_url;

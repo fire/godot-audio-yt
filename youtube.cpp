@@ -623,13 +623,13 @@ void yt::Player::thread_func() {
 	};
 	
 	auto create_youtube_stream = [&]() {
-		auto fetch_scrambler_funcs = [&](const PlayerResponse &p_player, Vector<ScramblerFunction> &r_scrambler) {
+		auto fetch_scrambler_funcs = [&](const PlayerResponse &p_player, std::vector<ScramblerFunction> &r_scrambler) {
 			const String player_script = YouTube::get_singleton()->request(
 				YOUTUBE_HOST,
 				p_player.player_url,
 				"",
 				"",
-				Vector<String>(),
+				yt::DEFAULT_HEADERS,
 				&terminate_thread
 			);
 			
@@ -672,10 +672,7 @@ void yt::Player::thread_func() {
 						statement
 					).to_int64();
 					
-					r_scrambler.push_back(ScramblerFunction{
-						.type = ScramblerFunction::Type::SLICE,
-						.index = index
-					});
+					r_scrambler.emplace_back(ScramblerFunction::Type::SLICE, index);
 					continue;
 				}
 				
@@ -690,10 +687,7 @@ void yt::Player::thread_func() {
 						statement
 					).to_int64();
 					
-					r_scrambler.push_back(ScramblerFunction{
-						.type = ScramblerFunction::Type::SWAP,
-						.index = index
-					});
+					r_scrambler.emplace_back(ScramblerFunction::Type::SWAP, index);
 					continue;
 				}
 				
@@ -703,9 +697,7 @@ void yt::Player::thread_func() {
 					0
 				);
 				if(!reverse_match.empty()) {
-					r_scrambler.push_back(ScramblerFunction{
-						.type = ScramblerFunction::Type::REVERSE
-					});
+					r_scrambler.emplace_back(ScramblerFunction::Type::REVERSE, 0);
 					continue;
 				}
 			}
@@ -750,9 +742,9 @@ void yt::Player::thread_func() {
 				const String signature_param = cipher_data["sp"];
 				const String signature_scrambled = cipher_data["s"];
 				
-				auto decipher_url = [&](const Vector<ScramblerFunction> &p_scrambler) {
+				auto decipher_url = [&](const std::vector<ScramblerFunction> &p_scrambler) {
 					String signature = signature_scrambled;
-					for(int i = 0; i < p_scrambler.size(); ++i) {
+					for(size_t i = 0; i < p_scrambler.size(); ++i) {
 						const ScramblerFunction &func = p_scrambler[i];
 						
 						switch(func.type) {

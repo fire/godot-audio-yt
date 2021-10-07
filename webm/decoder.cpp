@@ -148,6 +148,8 @@ void webm::Decoder::load_headers() {
 	struct RawCuePoint {
 		uint64_t raw_time;
 		uint64_t pos;
+		
+		RawCuePoint(const uint64_t p_raw_time, const uint64_t p_pos) : raw_time(p_raw_time), pos(p_pos) {}
 	};
 	
 	// CUES ELEMENTS (CUE TIME, CUE TRACK POSITIONS)
@@ -173,16 +175,15 @@ void webm::Decoder::load_headers() {
 			auto search_track_positions = stream->range(track_positions).search();
 			const auto cluster_position = search_track_positions.get<ELEMENT_CUE_CLUSTER_POSITION, ebml::ElementUint>();
 			
-			r_items.push_back(RawCuePoint{
-				.raw_time = cue_time->value,
-				.pos = p_segment->from + cluster_position->value
-			});
+			r_items.emplace_back(cue_time->value, p_segment->from + cluster_position->value);
 		}
 	};
 	
 	struct SeekItem {
 		ebml::ElementID id;
 		uint64_t pos;
+		
+		SeekItem(const ebml::ElementID p_id, const uint64_t p_pos) : id(p_id), pos(p_pos) {}
 	};
 	
 	// SEEK HEAD
@@ -207,10 +208,7 @@ void webm::Decoder::load_headers() {
 			ebml::ElementID id;
 			id_stream.read_id(pos, id);
 			
-			r_items.push_back(SeekItem{
-				.id = id,
-				.pos = p_seek_head->pos + seek_position->value
-			});
+			r_items.emplace_back(id, p_seek_head->pos + seek_position->value);
 		}
 	};
 	

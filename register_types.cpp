@@ -8,8 +8,8 @@ static yt::YouTube *gdaudioyt_youtube = nullptr;
 void register_gdaudioyt_types() {
 	ClassDB::register_class<AudioStreamYT>();
 	ClassDB::register_class<yt::VideoData>();
-	ClassDB::register_class<yt::YouTubeSearchJob>();
-	ClassDB::register_class<yt::YouTubeGetVideoJob>();
+	ClassDB::register_class<yt::YouTubeSearchTask>();
+	ClassDB::register_class<yt::YouTubeGetVideoTask>();
 	
 	ClassDB::register_class<yt::YouTube>();
 	gdaudioyt_youtube = memnew(yt::YouTube);

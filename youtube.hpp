@@ -83,18 +83,24 @@ public:
 
 class YouTube;
 
-class YouTubeSearchJob : public Reference {
-	GDCLASS(YouTubeSearchJob, Reference);
+class YouTubeSearchTask : public Reference {
+	GDCLASS(YouTubeSearchTask, Reference);
 	
 protected:
 	static void _bind_methods();
+
+public:
+	String query;
 };
 
-class YouTubeGetVideoJob : public Reference {
-	GDCLASS(YouTubeGetVideoJob, Reference);
+class YouTubeGetVideoTask : public Reference {
+	GDCLASS(YouTubeGetVideoTask, Reference);
 	
 protected:
 	static void _bind_methods();
+
+public:
+	String id;
 };
 
 class YouTube : public Object {
@@ -103,7 +109,7 @@ class YouTube : public Object {
 	static YouTube *singleton;
 	
 	bool terminate_threads = false;
-	std::vector<std::thread> job_threads;
+	std::vector<std::thread> task_threads;
 	
 protected:
 	static void _bind_methods();
@@ -111,10 +117,23 @@ protected:
 public:
 	static YouTube *get_singleton();
 	
-	Ref<yt::YouTubeSearchJob> search(const String &p_query);
-	Ref<yt::YouTubeGetVideoJob> get_video(const String &p_id);
+	String request(
+		const String p_host,
+		const String p_path,
+		const String p_body = String(),
+		const String p_file = String(),
+		const Vector<String> p_headers = DEFAULT_HEADERS,
+		const bool *p_terminate_threads = nullptr
+	);
 	
-	void download_cache(const String &p_local_path, const String &p_playback_url);
+	void _thread_search(const Ref<YouTubeSearchTask> p_task);
+	Ref<YouTubeSearchTask> search(const String p_query);
+	
+	void _thread_get_video(const Ref<YouTubeGetVideoTask> p_task);
+	Ref<YouTubeGetVideoTask> get_video(const String p_id);
+	
+	void _thread_download_cache(const String p_playback_url, const String p_local_path);
+	void download_cache(const String p_playback_url, const String p_local_path);
 	
 	YouTube();
 	virtual ~YouTube();

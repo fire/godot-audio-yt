@@ -23,155 +23,6 @@ String regex_match(const String &p_regex, const String &p_string, const uint64_t
 	return match->get_string(p_group);
 }
 
-String request(
-	const String &p_host,
-	const String &p_path,
-	const Vector<String> &p_headers,
-	const bool * const p_terminate,
-	const String &p_body = String(),
-	const String &p_file = String()
-) {
-	HTTPClient client;
-	
-	const Error connect_err = client.connect_to_host(p_host);
-	ERR_FAIL_COND_V_MSG(connect_err != OK, "", "Failed to connect to the host.");
-	
-	while(client.get_status() == HTTPClient::STATUS_RESOLVING || client.get_status() == HTTPClient::STATUS_CONNECTING) {
-		OS::get_singleton()->delay_usec(1);
-		client.poll();
-	}
-	
-	const bool &connect_failed = client.get_status() != HTTPClient::STATUS_CONNECTED;
-	ERR_FAIL_COND_V_MSG(connect_failed, "", "Failed to connect to the host.");
-	
-	if(p_body.empty()) {
-		const Error &request_err = client.request(HTTPClient::METHOD_GET, p_path, p_headers);
-		ERR_FAIL_COND_V_MSG(request_err != OK, "", "Failed to perform request.");
-	} else {
-		const Error &request_err = client.request(HTTPClient::METHOD_POST, p_path, p_headers, p_body);
-		ERR_FAIL_COND_V_MSG(request_err != OK, "", "Failed to perform request.");
-	}
-	
-	while(client.get_status() == HTTPClient::STATUS_REQUESTING) {
-		OS::get_singleton()->delay_usec(1);
-		client.poll();
-	}
-	
-	const bool request_failed = client.get_status() != HTTPClient::STATUS_BODY
-			&& client.get_status() != HTTPClient::STATUS_CONNECTED;
-	ERR_FAIL_COND_V_MSG(request_failed, "", "Failed to perform request.");
-	
-	if(client.has_response()) {
-		if(client.get_response_body_length() == 0) {
-			List<String> headers;
-			const Error headers_err = client.get_response_headers(&headers);
-			if(headers_err != OK) {
-				ERR_FAIL_V_MSG("", "Failed to read headers.");
-			}
-			
-			String redirect;
-			for(int i = 0; i < headers.size(); ++i) {
-				const String header = headers[i];
-				if(header.begins_with("Location: ")) {
-					redirect = header.substr(10);
-					client.close();
-					break;
-				}
-			}
-			
-			if(redirect.empty()) {
-				ERR_FAIL_V_MSG("", "Server replied with empty response.");
-			}
-			
-			if(redirect.begins_with("//")) {
-				redirect = redirect.insert(0, "https:");
-			} else if(redirect.begins_with("/")) {
-				redirect = redirect.insert(0, p_host);
-			}
-			
-			String new_scheme, new_host, new_path;
-			int new_port;
-			const Error url_err = redirect.parse_url(new_scheme, new_host, new_port, new_path);
-			ERR_FAIL_COND_V_MSG(url_err != OK, "", "Failed to parse redirect url.");
-			
-			if(!redirect.empty()) {
-				return request(new_scheme + new_host, new_path, p_headers, p_terminate, p_body, p_file);
-			}
-			
-			ERR_FAIL_V_MSG("", "Response body length was zero.");
-		}
-		
-		if(p_file.empty()) {
-			// Download to a string.
-			PoolByteArray response;
-			
-			while(client.get_status() == HTTPClient::STATUS_BODY) {
-				if(*p_terminate) {
-					return "";
-				}
-				client.poll();
-				const PoolByteArray &chunk = client.read_response_body_chunk();
-				if(!chunk.empty()) {
-					const uint64_t pos = response.size();
-					response.resize(response.size() + chunk.size());
-					for(int i = 0; i < chunk.size(); ++i) {
-						response.set(pos + i, chunk[i]);
-					}
-				} else {
-					OS::get_singleton()->delay_usec(1);
-				}
-			}
-			
-			String text;
-			const PoolByteArray::Read r = response.read();
-			text.parse_utf8((const char *)r.ptr(), response.size());
-			
-			return text;
-		} else {
-			// Create directory.
-			DirAccess * const dir = DirAccess::create_for_path(p_file);
-			if(!dir->dir_exists(p_file.get_base_dir())) {
-				const Error dir_err = dir->make_dir_recursive(p_file.get_base_dir());
-				ERR_FAIL_COND_V_MSG(dir_err != OK, "", "Failed to create directory: '" + p_file.get_base_dir() + "'.");
-			}
-			
-			// Create file.
-			const String tmp_file = p_file + ".part";
-			
-			dir->remove(p_file);
-			
-			Error file_err;
-			FileAccess * const file = FileAccess::open(tmp_file, FileAccess::WRITE, &file_err);
-			ERR_FAIL_COND_V_MSG(file_err != OK, "", "Failed to create file: '" + tmp_file + "'.");
-			
-			// Download to a file.
-			while(client.get_status() == HTTPClient::STATUS_BODY) {
-				if(*p_terminate) {
-					return "";
-				}
-				client.poll();
-				const PoolByteArray &chunk = client.read_response_body_chunk();
-				if(!chunk.empty()) {
-					const PoolByteArray::Read r = chunk.read();
-					file->store_buffer(r.ptr(), chunk.size());
-				} else {
-					OS::get_singleton()->delay_usec(1);
-				}
-			}
-			
-			file->close();
-			memdelete(file);
-			
-			const Error rename_err = dir->rename(tmp_file, p_file);
-			ERR_FAIL_COND_V_MSG(rename_err != OK, "", "Failed to rename file from '" + tmp_file + "' to '" + p_file + "'.");
-			
-			memdelete(dir);
-		}
-	}
-	
-	return "";
-}
-
 /**
  * Fetch the player url and the player response.
  * 
@@ -184,12 +35,21 @@ String request(
  *     ...
  * }
  * 
- * @returns A PlayerResponse object containing the response data.
+ * @param[in] p_id The YouTube video id.
+ * @param[out] r_response The player response data.
+ * @returns Whether the response was successful.
  */
-bool fetch_player_response(const String p_id, const bool * const p_terminate, yt::PlayerResponse &r_response) {
+bool _fetch_player_response(const String p_id, yt::PlayerResponse &r_response, const bool *p_terminate_threads) {
 	const String path = String("/watch?v={0}&hl=en").format(varray(p_id));
 	
-	String response = request(yt::YOUTUBE_HOST, path, yt::DEFAULT_HEADERS, p_terminate);
+	String response = yt::YouTube::get_singleton()->request(
+		yt::YOUTUBE_HOST,
+		path,
+		"",
+		"",
+		yt::DEFAULT_HEADERS,
+		p_terminate_threads
+	);
 	
 	String player_url = regex_match(
 		R"X("(?:PLAYER_JS_URL|jsUrl)"\s*:\s*"([^"]+)")X",
@@ -260,11 +120,164 @@ bool fetch_player_response(const String p_id, const bool * const p_terminate, yt
 	return true;
 };
 
-void yt::YouTubeSearchJob::_bind_methods() {
+String yt::YouTube::request(
+	const String p_host,
+	const String p_path,
+	const String p_body,
+	const String p_file,
+	const Vector<String> p_headers,
+	const bool *p_terminate_threads
+) {
+	HTTPClient client;
+	
+	if(p_terminate_threads == nullptr) {
+		p_terminate_threads = &terminate_threads;
+	}
+	
+	const Error connect_err = client.connect_to_host(p_host);
+	ERR_FAIL_COND_V_MSG(connect_err != OK, "", "Failed to connect to the host.");
+	
+	while(client.get_status() == HTTPClient::STATUS_RESOLVING || client.get_status() == HTTPClient::STATUS_CONNECTING) {
+		OS::get_singleton()->delay_usec(1);
+		client.poll();
+	}
+	
+	const bool connect_failed = client.get_status() != HTTPClient::STATUS_CONNECTED;
+	ERR_FAIL_COND_V_MSG(connect_failed, "", "Failed to connect to the host.");
+	
+	if(!p_body.empty()) {
+		const Error request_err = client.request(HTTPClient::METHOD_POST, p_path, p_headers, p_body);
+		ERR_FAIL_COND_V_MSG(request_err != OK, "", "Failed to perform request.");
+	} else {
+		const Error request_err = client.request(HTTPClient::METHOD_GET, p_path, p_headers);
+		ERR_FAIL_COND_V_MSG(request_err != OK, "", "Failed to perform request.");
+	}
+	
+	while(client.get_status() == HTTPClient::STATUS_REQUESTING) {
+		OS::get_singleton()->delay_usec(1);
+		client.poll();
+	}
+	
+	const bool request_failed = client.get_status() != HTTPClient::STATUS_BODY
+			&& client.get_status() != HTTPClient::STATUS_CONNECTED;
+	ERR_FAIL_COND_V_MSG(request_failed, "", "Failed to perform request.");
+	
+	if(client.has_response()) {
+		if(client.get_response_body_length() == 0) {
+			List<String> headers;
+			const Error headers_err = client.get_response_headers(&headers);
+			if(headers_err != OK) {
+				ERR_FAIL_V_MSG("", "Failed to read headers.");
+			}
+			
+			String redirect;
+			for(int i = 0; i < headers.size(); ++i) {
+				const String header = headers[i];
+				if(header.begins_with("Location: ")) {
+					redirect = header.substr(10);
+					client.close();
+					break;
+				}
+			}
+			
+			if(redirect.empty()) {
+				ERR_FAIL_V_MSG("", "Server replied with empty response.");
+			}
+			
+			if(redirect.begins_with("//")) {
+				redirect = redirect.insert(0, "https:");
+			} else if(redirect.begins_with("/")) {
+				redirect = redirect.insert(0, p_host);
+			}
+			
+			String new_scheme, new_host, new_path;
+			int new_port;
+			const Error url_err = redirect.parse_url(new_scheme, new_host, new_port, new_path);
+			ERR_FAIL_COND_V_MSG(url_err != OK, "", "Failed to parse redirect url.");
+			
+			if(!redirect.empty()) {
+				return request(new_scheme + new_host, new_path, p_body, p_file, p_headers);
+			}
+			
+			ERR_FAIL_V_MSG("", "Response body length was zero.");
+		}
+		
+		if(p_file.empty()) {
+			// Download to a string.
+			PoolByteArray response;
+			
+			while(client.get_status() == HTTPClient::STATUS_BODY) {
+				if(*p_terminate_threads) {
+					return "";
+				}
+				client.poll();
+				const PoolByteArray &chunk = client.read_response_body_chunk();
+				if(!chunk.empty()) {
+					const uint64_t pos = response.size();
+					response.resize(response.size() + chunk.size());
+					for(int i = 0; i < chunk.size(); ++i) {
+						response.set(pos + i, chunk[i]);
+					}
+				} else {
+					OS::get_singleton()->delay_usec(1);
+				}
+			}
+			
+			String text;
+			const PoolByteArray::Read r = response.read();
+			text.parse_utf8((const char *)r.ptr(), response.size());
+			
+			return text;
+		} else {
+			// Create directory.
+			DirAccess * const dir = DirAccess::create_for_path(p_file);
+			if(!dir->dir_exists(p_file.get_base_dir())) {
+				const Error dir_err = dir->make_dir_recursive(p_file.get_base_dir());
+				ERR_FAIL_COND_V_MSG(dir_err != OK, "", "Failed to create directory: '" + p_file.get_base_dir() + "'.");
+			}
+			
+			// Create file.
+			const String tmp_file = p_file + ".part";
+			
+			dir->remove(p_file);
+			
+			Error file_err;
+			FileAccess * const file = FileAccess::open(tmp_file, FileAccess::WRITE, &file_err);
+			ERR_FAIL_COND_V_MSG(file_err != OK, "", "Failed to create file: '" + tmp_file + "'.");
+			
+			// Download to a file.
+			while(client.get_status() == HTTPClient::STATUS_BODY) {
+				if(*p_terminate_threads) {
+					return "";
+				}
+				client.poll();
+				const PoolByteArray &chunk = client.read_response_body_chunk();
+				if(!chunk.empty()) {
+					const PoolByteArray::Read r = chunk.read();
+					file->store_buffer(r.ptr(), chunk.size());
+				} else {
+					OS::get_singleton()->delay_usec(1);
+				}
+			}
+			
+			file->close();
+			memdelete(file);
+			
+			const Error rename_err = dir->rename(tmp_file, p_file);
+			ERR_FAIL_COND_V_MSG(rename_err != OK, "", "Failed to rename file from '" + tmp_file + "' to '" + p_file + "'.");
+			
+			memdelete(dir);
+		}
+	}
+	
+	return "";
+}
+
+void yt::YouTubeSearchTask::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("completed", PropertyInfo(Variant::ARRAY, "results", PROPERTY_HINT_RESOURCE_TYPE, "VideoData")));
 }
 
-void yt::YouTubeGetVideoJob::_bind_methods() {
+void yt::YouTubeGetVideoTask::_bind_methods() {
 	ADD_SIGNAL(MethodInfo("completed", PropertyInfo(Variant::OBJECT, "result", PROPERTY_HINT_RESOURCE_TYPE, "VideoData")));
 }
 
@@ -376,14 +389,7 @@ void yt::YouTube::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_video", "id"), &yt::YouTube::get_video);
 }
 
-template <class T>
-struct JobData {
-	Ref<Reference> job;
-	T data;
-	const bool *terminate_thread;
-};
-
-void _search(JobData<String> p_data) {
+void yt::YouTube::_thread_search(Ref<YouTubeSearchTask> p_task) {
 	const String path = "/youtubei/v1/search?key=AIzaSyAO_FJ2SlqU8Q4STEHLGCilw_Y9_11qcW8";
 	
 	Vector<String> headers;
@@ -403,13 +409,13 @@ void _search(JobData<String> p_data) {
 			}
 			body["context"] = context;
 		}
-		body["query"] = p_data.data;
+		body["query"] = p_task->query;
 		return body;
 	};
 	
 	const String body = JSON::print(get_body());
 	
-	const String search_response_raw = request(yt::YOUTUBE_HOST, path, headers, p_data.terminate_thread, body);
+	const String search_response_raw = request(yt::YOUTUBE_HOST, path, body, "", headers);
 	
 	Variant search_response;
 	{
@@ -503,12 +509,19 @@ void _search(JobData<String> p_data) {
 		}
 	}
 	
-	p_data.job->emit_signal("completed", results);
+	p_task->emit_signal("completed", results);
 }
 
-void _get_video(JobData<String> p_data) {
+Ref<yt::YouTubeSearchTask> yt::YouTube::search(const String p_query) {
+	Ref<YouTubeSearchTask> task;
+	task.instance();
+	task_threads.push_back(std::thread(&yt::YouTube::_thread_search, this, task));
+	return task;
+}
+
+void yt::YouTube::_thread_get_video(Ref<YouTubeGetVideoTask> p_task) {
 	yt::PlayerResponse response;
-	const bool response_flag = fetch_player_response(p_data.data, p_data.terminate_thread, response);
+	const bool response_flag = _fetch_player_response(p_task->id, response, &terminate_threads);
 	if(!response_flag) {
 		return;
 	}
@@ -545,7 +558,7 @@ void _get_video(JobData<String> p_data) {
 	Ref<yt::VideoData> result;
 	result.instance();
 	result->create(
-		p_data.data,
+		p_task->id,
 		details.get("author"),
 		details.get("title"),
 		String(details.get("lengthSeconds")).to_int64(),
@@ -553,56 +566,31 @@ void _get_video(JobData<String> p_data) {
 		from_artist
 	);
 	
-	p_data.job->emit_signal("completed", result);
+	p_task->emit_signal("completed", result);
+}
+
+Ref<yt::YouTubeGetVideoTask> yt::YouTube::get_video(const String p_id) {
+	Ref<YouTubeGetVideoTask> task;
+	task.instance();
+	task_threads.push_back(std::thread(&yt::YouTube::_thread_get_video, this, task));
+	return task;
 }
 
 yt::YouTube *yt::YouTube::get_singleton() {
 	return singleton;
 }
 
-Ref<yt::YouTubeSearchJob> yt::YouTube::search(const String &p_query) {
-	Ref<YouTubeSearchJob> job;
-	job.instance();
-	job_threads.push_back(std::thread(&_search, JobData<String>{
-		.job = job,
-		.data = p_query,
-		.terminate_thread = &terminate_threads
-	}));
-	
-	return job;
-}
-
-Ref<yt::YouTubeGetVideoJob> yt::YouTube::get_video(const String &p_id) {
-	Ref<YouTubeGetVideoJob> job;
-	job.instance();
-	job_threads.push_back(std::thread(&_get_video, JobData<String>{
-		.job = job,
-		.data = p_id,
-		.terminate_thread = &terminate_threads
-	}));
-	
-	return job;
-}
-
-void _download_cache(JobData<std::pair<String, String>> p_data) {
-	const String &local_path = p_data.data.first;
-	const String &playback_url = p_data.data.second;
-	
+void yt::YouTube::_thread_download_cache(const String p_playback_url, const String p_local_path) {
 	String scheme, host, path;
 	int port;
-	const Error err = playback_url.parse_url(scheme, host, port, path);
+	const Error err = p_playback_url.parse_url(scheme, host, port, path);
 	ERR_FAIL_COND_MSG(err != OK, "Failed to parse playback url.");
 	
-	request(scheme + host, path, yt::DEFAULT_HEADERS, p_data.terminate_thread, String(), local_path);
+	request(scheme + host, path, "", p_local_path);
 }
 
-void yt::YouTube::download_cache(const String &p_local_path, const String &p_playback_url) {
-	Ref<Reference> job;
-	job_threads.push_back(std::thread(&_download_cache, JobData<std::pair<String, String>>{
-		.job = job,
-		.data = std::pair<String, String>(p_local_path, p_playback_url),
-		.terminate_thread = &terminate_threads
-	}));
+void yt::YouTube::download_cache(const String p_playback_url, const String p_local_path) {
+	task_threads.push_back(std::thread(&yt::YouTube::_thread_download_cache, this, p_playback_url, p_local_path));
 }
 
 yt::YouTube::YouTube() {
@@ -611,7 +599,7 @@ yt::YouTube::YouTube() {
 
 yt::YouTube::~YouTube() {
 	terminate_threads = true;
-	for(std::thread &thread : job_threads) {
+	for(std::thread &thread : task_threads) {
 		thread.join();
 	}
 	
@@ -636,10 +624,12 @@ void yt::Player::thread_func() {
 	
 	auto create_youtube_stream = [&]() {
 		auto fetch_scrambler_funcs = [&](const PlayerResponse &p_player, Vector<ScramblerFunction> &r_scrambler) {
-			const String player_script = request(
+			const String player_script = YouTube::get_singleton()->request(
 				YOUTUBE_HOST,
 				p_player.player_url,
-				DEFAULT_HEADERS,
+				"",
+				"",
+				Vector<String>(),
 				&terminate_thread
 			);
 			
@@ -804,7 +794,7 @@ void yt::Player::thread_func() {
 		};
 		
 		PlayerResponse response;
-		const bool response_flag = fetch_player_response(id, &terminate_thread, response);
+		const bool response_flag = _fetch_player_response(id, response, &terminate_thread);
 		if(!response_flag) {
 			return;
 		}

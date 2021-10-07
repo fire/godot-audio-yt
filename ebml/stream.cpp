@@ -93,12 +93,6 @@ void ebml::Stream::read_size(uint64_t &p_pos, ElementSize &r_result) {
 	read_num<ElementSize, true>(p_pos, r_result);
 }
 
-void reverse_copy(uint8_t * const dst, const uint8_t * const src, const uint64_t n) {
-	for(uint64_t i = 0; i < n; ++i) {
-		dst[i] = src[n - 1 - i];
-	}
-}
-
 void ebml::Stream::read_element(uint64_t &p_pos, const Element *&r_element) {
 	uint64_t pos = p_pos;
 	
@@ -116,29 +110,17 @@ void ebml::Stream::read_element(uint64_t &p_pos, const Element *&r_element) {
 			pos += size;
 		} break;
 		case ELEMENT_TYPE_UINT: {
-			uint8_t data[size];
-			uint64_t result = 0;
-			read((uint8_t *)&data, pos, size);
-			
-			reverse_copy((uint8_t *)&result, (uint8_t *)&data, size);
-			
+			const uint64_t result = ebml_read_copy_reverse<uint64_t>(pos, size);
 			element = new ElementUint(reg, p_pos, result);
 		} break;
 		case ELEMENT_TYPE_INT: {
-			uint8_t data[size];
-			int64_t result = 0;
-			read((uint8_t *)&data, pos, size);
-			
-			reverse_copy((uint8_t *)&result, (uint8_t *)&data, size);
-			
+			const int64_t result = ebml_read_copy_reverse<int64_t>(pos, size);
 			element = new ElementInt(reg, p_pos, result);
 		} break;
 		case ELEMENT_TYPE_STRING:
 		case ELEMENT_TYPE_UNICODE: {
-			uint8_t * const data = new uint8_t[size];
-			read(data, pos, size);
-			const std::string value((const char *)data);
-			element = new ElementString(reg, p_pos, value);
+			const std::string result = ebml_read_construct<std::string, char *>(pos, size);
+			element = new ElementString(reg, p_pos, result);
 		} break;
 		case ELEMENT_TYPE_BINARY: {
 			uint8_t * const data = new uint8_t[size];
@@ -149,22 +131,10 @@ void ebml::Stream::read_element(uint64_t &p_pos, const Element *&r_element) {
 			double value;
 			switch(size) {
 				case 4: {
-					uint8_t data[4];
-					float result;
-					read((uint8_t *)&data, pos, 4);
-					
-					reverse_copy((uint8_t *)&result, (uint8_t *)&data, 4);
-					
-					value = result;
+					value = ebml_read_copy_reverse<float>(pos, 4);
 				} break;
 				case 8: {
-					uint8_t data[8];
-					double result;
-					read((uint8_t *)&data, pos, 8);
-					
-					reverse_copy((uint8_t *)&result, (uint8_t *)&data, 8);
-					
-					value = result;
+					value = ebml_read_copy_reverse<double>(pos, 8);
 				} break;
 				default: {
 					value = 0.0;
@@ -173,12 +143,7 @@ void ebml::Stream::read_element(uint64_t &p_pos, const Element *&r_element) {
 			element = new ElementFloat(reg, p_pos, value);
 		} break;
 		case ELEMENT_TYPE_DATE: {
-			uint8_t data[size];
-			int64_t result = 0;
-			read((uint8_t *)&data, pos, size);
-			
-			reverse_copy((uint8_t *)&result, (uint8_t *)&data, size);
-			
+			const int64_t result = ebml_read_copy_reverse<int64_t>(pos, size);
 			element = new ElementDate(reg, p_pos, result);
 		} break;
 		default: {

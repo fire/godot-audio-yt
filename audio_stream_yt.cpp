@@ -7,7 +7,7 @@ void AudioStreamPlaybackYT::_bind_methods() {
 }
 
 void AudioStreamPlaybackYT::_mix_internal(AudioFrame *p_buffer, int p_frames) {
-	audio::AudioFrame *buffer = (audio::AudioFrame *) AudioServer::get_singleton()->audio_data_alloc(sizeof(audio::AudioFrame) * p_frames);
+	audio::AudioFrame *buffer = (audio::AudioFrame *)AudioServer::get_singleton()->audio_data_alloc(sizeof(audio::AudioFrame) * p_frames);
 	decoder->sample(buffer, p_frames, active, buffering);
 	
 	for(int i = 0; i < p_frames; ++i) {

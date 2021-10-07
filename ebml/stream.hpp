@@ -117,6 +117,12 @@ class Stream {
 	template<class T, bool strip_leading>
 	void read_num(uint64_t &p_pos, T &r_result);
 	
+	template<class T>
+	T ebml_read_copy_reverse(uint64_t &p_pos, const uint64_t p_size);
+	
+	template<class T, class Cast = uint8_t *>
+	T ebml_read_construct(uint64_t &p_pos, const uint64_t p_size);
+	
 protected:
 	/**
 	 * Virtual method to read an arbitrary amount of data from the input.
@@ -193,6 +199,30 @@ public:
 };
 
 };
+
+template<class T>
+T ebml::Stream::ebml_read_copy_reverse(uint64_t &p_pos, const uint64_t p_size) {
+	uint8_t * const data = new uint8_t[p_size];
+	read((uint8_t *)&data, p_pos, p_size);
+	
+	uint64_t result = 0;
+	uint8_t * const result_ptr = (uint8_t *)&result;
+	for(uint64_t i = 0; i < p_size; ++i) {
+		result_ptr[i] = data[p_size - 1 - i];
+	}
+	delete[] data;
+	
+	return result;
+}
+
+template<class T, class Cast>
+T ebml::Stream::ebml_read_construct(uint64_t &p_pos, const uint64_t p_size) {
+	uint8_t * const data = new uint8_t[p_size];
+	read((uint8_t *)&data, p_pos, p_size);
+	delete[] data;
+	T result((Cast)data);
+	return result;
+}
 
 template<class T, bool strip_leading>
 void ebml::Stream::read_num(uint64_t &p_pos, T &r_result) {

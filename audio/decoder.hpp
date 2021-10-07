@@ -10,7 +10,7 @@ namespace audio {
 struct AudioFrame {
 	float l;
 	float r;
-	
+
 	AudioFrame();
 	AudioFrame(const float p_l, const float p_r);
 	virtual ~AudioFrame();
@@ -25,17 +25,17 @@ public:
 	 * @returns The sample rate of the stream, or `0.0` if the stream is not loaded.
 	 */
 	virtual double get_sample_rate() const = 0;
-	
+
 	/**
 	 * @returns The duration of the stream, or `0.0` if the stream is not loaded.
 	 */
 	virtual double get_duration() const = 0;
-	
+
 	/**
 	 * @returns The position of the stream.
 	 */
 	virtual double get_position() const = 0;
-	
+
 	/**
 	 * Changes the position of playback to `p_time`.
 	 * 
@@ -44,7 +44,7 @@ public:
 	 * @param[in] p_time The time to seek to.
 	 */
 	virtual void seek(const double p_time) = 0;
-	
+
 	/**
 	 * Read an arbitrary amount of audio samples from the stream.
 	 * 
@@ -55,9 +55,9 @@ public:
 	 * @param[out] r_active Whether or not the stream should continue.
 	 * @param[out] r_buffering Whether or not the stream is buffering.
 	 */
-	virtual void sample(AudioFrame * const p_buffer, const uint64_t p_frames, bool &r_active, bool &r_buffering) = 0;
-	
+	virtual void sample(AudioFrame *const p_buffer, const uint64_t p_frames, bool &r_active, bool &r_buffering) = 0;
+
 	virtual ~Decoder();
 };
 
-};
+}; // namespace audio

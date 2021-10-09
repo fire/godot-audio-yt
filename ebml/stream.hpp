@@ -205,7 +205,7 @@ T ebml::Stream::ebml_read_copy_reverse(uint64_t &p_pos, const uint64_t p_size) {
 	uint8_t *const data = new uint8_t[p_size];
 	read((uint8_t *)&data, p_pos, p_size);
 
-	uint64_t result = 0;
+	T result = default(T);
 	uint8_t *const result_ptr = (uint8_t *)&result;
 	for (uint64_t i = 0; i < p_size; ++i) {
 		result_ptr[i] = data[p_size - 1 - i];

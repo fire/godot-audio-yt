@@ -507,6 +507,7 @@ void yt::YouTube::_thread_search(Ref<YouTubeSearchTask> p_task) {
 Ref<yt::YouTubeSearchTask> yt::YouTube::search(const String p_query) {
 	Ref<YouTubeSearchTask> task;
 	task.instance();
+	task->query = p_query;
 	task_threads.push_back(std::thread(&yt::YouTube::_thread_search, this, task));
 	return task;
 }
@@ -563,6 +564,7 @@ void yt::YouTube::_thread_get_video(Ref<YouTubeGetVideoTask> p_task) {
 Ref<yt::YouTubeGetVideoTask> yt::YouTube::get_video(const String p_id) {
 	Ref<YouTubeGetVideoTask> task;
 	task.instance();
+	task->id = p_id;
 	task_threads.push_back(std::thread(&yt::YouTube::_thread_get_video, this, task));
 	return task;
 }

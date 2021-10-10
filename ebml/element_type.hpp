@@ -3,9 +3,7 @@
 #include <cstdint>
 
 namespace ebml {
-
 typedef uint8_t ElementType;
-
 };
 
 #define ELEMENT_TYPE_UNKNOWN 0x0

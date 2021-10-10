@@ -3,7 +3,6 @@
 #include <cstdint>
 
 namespace audio {
-
 /**
  * Single frame of audio consisting of left and right channels.
  */
@@ -38,18 +37,18 @@ public:
 
 	/**
 	 * Changes the position of playback to `p_time`.
-	 * 
+	 *
 	 * If the stream is not loaded, this time will be remembered until it is loaded.
-	 * 
+	 *
 	 * @param[in] p_time The time to seek to.
 	 */
 	virtual void seek(const double p_time) = 0;
 
 	/**
 	 * Read an arbitrary amount of audio samples from the stream.
-	 * 
+	 *
 	 * Advances the stream's position by the amount of time elapsed.
-	 * 
+	 *
 	 * @param[in] p_buffer Pointer of the array to write into.
 	 * @param[in] p_frames Number of audio frames to read.
 	 * @param[out] r_active Whether or not the stream should continue.
@@ -59,5 +58,4 @@ public:
 
 	virtual ~Decoder();
 };
-
 }; // namespace audio

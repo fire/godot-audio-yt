@@ -8,7 +8,6 @@
 #include "element_type.hpp"
 
 namespace ebml {
-
 struct Element {
 	const ElementRegister reg;
 	const uint64_t pos;
@@ -139,5 +138,4 @@ struct ElementDate : public Element {
 
 	~ElementDate() {}
 };
-
 }; // namespace ebml

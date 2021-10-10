@@ -11,7 +11,6 @@
 #include <functional>
 
 namespace yt {
-
 static const char *const YOUTUBE_HOST = "https://www.youtube.com";
 
 static const Vector<String> DEFAULT_HEADERS = []() {
@@ -179,5 +178,4 @@ public:
 	Player(const String p_id);
 	virtual ~Player();
 };
-
 }; // namespace yt

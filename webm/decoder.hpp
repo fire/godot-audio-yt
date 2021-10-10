@@ -10,7 +10,6 @@
 #include <vector>
 
 namespace webm {
-
 /**
  * Cue point found inside the cues element.
  */
@@ -100,5 +99,4 @@ public:
 	Decoder(ebml::Stream *const p_stream);
 	virtual ~Decoder();
 };
-
 }; // namespace webm

@@ -6,7 +6,6 @@
 #include "element_type.hpp"
 
 namespace ebml {
-
 struct ElementRegister {
 	const ElementID id;
 	const ElementType type;
@@ -193,5 +192,4 @@ const ElementRegister ELEMENT_REGISTERS[] = {
 };
 
 ElementRegister get_register(const ElementID &p_id);
-
 }; // namespace ebml

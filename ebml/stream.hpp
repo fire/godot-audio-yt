@@ -11,13 +11,12 @@
 #include <vector>
 
 namespace ebml {
-
 class Stream;
 class Searcher;
 
 /**
  * A range of bytes inside the stream. This is intended for iterating through elements.
- * 
+ *
  * @see Stream::range
  */
 class ElementRange {
@@ -29,7 +28,7 @@ public:
 public:
 	/**
 	 * Iterator to iterate through the elements in this range.
-	 * 
+	 *
 	 * Elements allocated by this iterator are automatically deleted when the iterator is destroyed.
 	 */
 	class Iterator {
@@ -64,10 +63,10 @@ public:
 
 	/**
 	 * Create a new searcher object. This can be used to simplify the element searching process.
-	 * 
+	 *
 	 * @see Searcher
 	 * @see Searcher::get
-	 * 
+	 *
 	 * @returns A new searcher object.
 	 */
 	Searcher search() const;
@@ -77,7 +76,7 @@ public:
 
 /**
  * Allows directly searching for an element in this range based on their IDs.
- * 
+ *
  * @see ElementRange::search
  * @see get
  */
@@ -91,11 +90,11 @@ public:
 public:
 	/**
 	 * Search for an element represented by its ID.
-	 * 
+	 *
 	 * If the element is not found, an exception is thrown.
-	 * 
+	 *
 	 * If the Searcher object is destroyed, all elements discovered with this method will be deleted.
-	 * 
+	 *
 	 * @tparam ID The ID of the element to search for.
 	 * @tparam Type The type to cast the found element to.
 	 * @returns The found element.
@@ -110,7 +109,7 @@ public:
 
 /**
  * Virtual stream class for parsing EBML.
- * 
+ *
  * All methods used for reading EBML information have a parameter for position and a reference parameter for the result.
  */
 class Stream {
@@ -126,11 +125,11 @@ class Stream {
 protected:
 	/**
 	 * Virtual method to read an arbitrary amount of data from the input.
-	 * 
+	 *
 	 * Implementations should fill each value of `p_buffer` to avoid undefined behavior.
 	 * Implementations should increment `p_pos` by `p_bytes` when the write is successful.
 	 * Implementations may throw an exception if something goes wrong.
-	 * 
+	 *
 	 * @param[in] p_buffer Pointer of the array to write into.
 	 * @param[in, out] p_pos Position to read from in the input data. Will be incremented if the read is successful.
 	 * @param[in] p_bytes Number of bytes to read from the input data.
@@ -140,14 +139,14 @@ protected:
 public:
 	/**
 	 * Virtual method to get the total length of the input data.
-	 * 
+	 *
 	 * @returns The total amount of bytes available in the input data.
 	 */
 	virtual uint64_t get_length() = 0;
 
 	/**
 	 * Read a variable size integer from the stream according to the EBML specification.
-	 * 
+	 *
 	 * @param[in, out] p_pos Position to read from in the input data. Will be incremented if the read is successful.
 	 * @param[out] r_result The resulting integer.
 	 */
@@ -155,7 +154,7 @@ public:
 
 	/**
 	 * Read an ID from the stream according to the EBML specification.
-	 * 
+	 *
 	 * @param[in, out] p_pos Position to read from in the input data. Will be incremented if the read is successful.
 	 * @param[out] r_result The resulting id.
 	 */
@@ -163,7 +162,7 @@ public:
 
 	/**
 	 * Read the element data size from the stream according to the EBML specification.
-	 * 
+	 *
 	 * @param[in, out] p_pos Position to read from in the input data. Will be incremented if the read is successful.
 	 * @param[out] r_result The resulting size.
 	 */
@@ -171,10 +170,10 @@ public:
 
 	/**
 	 * Read an EBML element from the stream according to the EBML specification.
-	 * 
+	 *
 	 * This method allocates a new pointer to the resulting element. If is up to the caller to later free this element
 	 * with `delete` to avoid a memory leak.
-	 * 
+	 *
 	 * @param[in, out] p_pos Position to read from in the input data. Will be incremented if the read is successful.
 	 * @param[out] r_result The resulting element.
 	 */
@@ -182,7 +181,7 @@ public:
 
 	/**
 	 * Helper function that creates an ElementRange that corresponds to this element's children.
-	 * 
+	 *
 	 * @param p_element A master element
 	 * @returns A range that corresponds to the children of a master element.
 	 */
@@ -190,14 +189,13 @@ public:
 
 	/**
 	 * Helper function that creates an ElementRange that corresponds to the entire stream.
-	 * 
+	 *
 	 * @returns A range that corresponds to all primary elements.
 	 */
 	ElementRange range();
 
 	virtual ~Stream();
 };
-
 }; // namespace ebml
 
 template <class T>

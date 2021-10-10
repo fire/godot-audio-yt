@@ -3,7 +3,6 @@
 #include "stream.hpp"
 
 namespace ebml {
-
 class BufferStream : public Stream {
 	const uint8_t *const data;
 	const uint64_t size;
@@ -15,5 +14,4 @@ public:
 	BufferStream(const uint8_t *const p_data, const uint64_t p_size);
 	virtual ~BufferStream();
 };
-
 }; // namespace ebml

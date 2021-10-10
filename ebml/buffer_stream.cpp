@@ -3,7 +3,6 @@
 #include "typedefs.hpp"
 
 namespace ebml {
-
 void BufferStream::read(uint8_t *const p_buffer, uint64_t &p_pos, const uint64_t p_bytes) {
 	if (p_pos < 0 || p_pos + p_bytes > size) {
 #ifdef __EXCEPTIONS
@@ -34,5 +33,4 @@ BufferStream::BufferStream(const uint8_t *const p_data, const uint64_t p_size) :
 
 BufferStream::~BufferStream() {
 }
-
 }; // namespace ebml

@@ -25,7 +25,7 @@ String regex_match(const String &p_regex, const String &p_string, const uint64_t
 
 /**
  * Fetch the player url and the player response.
- * 
+ *
  * The player url is a url to a JavaScript file: (/s/player/.../base.js).
  * The player response is a large json object containing playback information.
  * {
@@ -34,7 +34,7 @@ String regex_match(const String &p_regex, const String &p_string, const uint64_t
  *     "streamingData": { ... },
  *     ...
  * }
- * 
+ *
  * @param[in] p_id The YouTube video id.
  * @param[out] r_response The player response data.
  * @returns Whether the response was successful.

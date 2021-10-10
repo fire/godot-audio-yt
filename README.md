@@ -19,10 +19,10 @@ func _ready() -> void:
 	# Note: This is not required to play the audio.
 	var info: VideoData = yield(YouTube.get_video("QPKKQnijnsM"), "completed")
 	print(info.channel, ": ", info.title)
-	
+
 	# Set the YouTube ID.
 	stream.create("QPKKQnijnsM")
-	
+
 	# Assign the stream and play it.
 	player.stream = stream
 	player.play()
@@ -34,7 +34,7 @@ func _process(_delta: float) -> void:
 		player.seek(player.get_playback_position() - 5.0)
 	if Input.is_action_just_pressed("ui_right"):
 		player.seek(player.get_playback_position() + 5.0)
-	
+
 	# Print current time and duration.
 	print("%.3f/%.3f" % [player.get_playback_position(), stream.get_length()])
 

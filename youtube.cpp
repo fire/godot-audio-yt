@@ -125,6 +125,8 @@ String yt::YouTube::request(
 		const bool *p_terminate_threads) {
 	HTTPClient client;
 
+	//print_verbose(String() + "Requesting at host '" + p_host + "', path '" + p_path + "', body '" + p_body + "', file '" + p_file + "'");
+
 	if (p_terminate_threads == nullptr) {
 		p_terminate_threads = &terminate_threads;
 	}
@@ -780,7 +782,7 @@ void yt::Player::thread_func() {
 		playback.decoder = new webm::Decoder(playback.stream);
 		playback.ready = true;
 
-		YouTube::get_singleton()->download_cache(local_path, playback_url);
+		YouTube::get_singleton()->download_cache(playback_url, local_path);
 	};
 
 	if (FileAccess::exists(local_path)) {

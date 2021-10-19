@@ -82,6 +82,15 @@ ebml::ElementRange::ElementRange(
 		stream(p_stream), from(p_from), to(p_to) {
 }
 
+std::string ebml::Stream::ebml_read_string(uint64_t &p_pos, const uint64_t p_size) {
+	uint8_t *const data = new uint8_t[p_size + 1];
+	data[p_size] = '\0';
+	read(data, p_pos, p_size);
+	std::string result((char *)data);
+	delete[] data;
+	return result;
+}
+
 void ebml::Stream::read_int(uint64_t &p_pos, int64_t &r_result) {
 	read_num<int64_t, true>(p_pos, r_result);
 }
@@ -120,7 +129,7 @@ void ebml::Stream::read_element(uint64_t &p_pos, const Element *&r_element) {
 		} break;
 		case ELEMENT_TYPE_STRING:
 		case ELEMENT_TYPE_UNICODE: {
-			const std::string result = ebml_read_construct<std::string, char *>(pos, size);
+			const std::string result = ebml_read_string(pos, size);
 			element = new ElementString(reg, p_pos, result);
 		} break;
 		case ELEMENT_TYPE_BINARY: {

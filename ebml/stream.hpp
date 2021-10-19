@@ -119,8 +119,7 @@ class Stream {
 	template <class T>
 	T ebml_read_copy_reverse(uint64_t &p_pos, const uint64_t p_size);
 
-	template <class T, class Cast = uint8_t *>
-	T ebml_read_construct(uint64_t &p_pos, const uint64_t p_size);
+	std::string ebml_read_string(uint64_t &p_pos, const uint64_t p_size);
 
 protected:
 	/**
@@ -198,28 +197,6 @@ public:
 };
 }; // namespace ebml
 
-template <class T>
-T ebml::Stream::ebml_read_copy_reverse(uint64_t &p_pos, const uint64_t p_size) {
-	uint8_t *const data = new uint8_t[p_size];
-	read(data, p_pos, p_size);
-	T result = T();
-	uint8_t *const result_ptr = (uint8_t *)&result;
-	for (uint64_t i = 0; i < p_size; ++i) {
-		result_ptr[i] = data[p_size - i - 1];
-	}
-	delete[] data;
-	return result;
-}
-
-template <class T, class Cast>
-T ebml::Stream::ebml_read_construct(uint64_t &p_pos, const uint64_t p_size) {
-	uint8_t *const data = new uint8_t[p_size];
-	read(data, p_pos, p_size);
-	T result((Cast)data);
-	delete[] data;
-	return result;
-}
-
 template <class T, bool strip_leading>
 void ebml::Stream::read_num(uint64_t &p_pos, T &r_result) {
 	uint64_t pos = p_pos;
@@ -248,6 +225,19 @@ void ebml::Stream::read_num(uint64_t &p_pos, T &r_result) {
 
 	p_pos = pos;
 	r_result = full;
+}
+
+template <class T>
+T ebml::Stream::ebml_read_copy_reverse(uint64_t &p_pos, const uint64_t p_size) {
+	uint8_t *const data = new uint8_t[p_size];
+	read(data, p_pos, p_size);
+	T result = T();
+	uint8_t *const result_ptr = (uint8_t *)&result;
+	for (uint64_t i = 0; i < p_size; ++i) {
+		result_ptr[i] = data[p_size - i - 1];
+	}
+	delete[] data;
+	return result;
 }
 
 template <uint64_t ID, typename Type>

@@ -143,13 +143,13 @@ public:
 
 class Player : public audio::Decoder {
 	const String id;
+	const String local_path = String("user://youtube_cache/{0}.webm").format(varray(id));
 
 	bool terminate_thread = false;
 	std::thread thread;
 
 	struct Playback {
 		bool ready = false;
-		uint64_t sample_attempts = 0;
 		double start_pos = 0.0;
 		ebml::Stream *stream = nullptr;
 		webm::Decoder *decoder = nullptr;
@@ -165,8 +165,7 @@ class Player : public audio::Decoder {
 	} playback;
 
 protected:
-	static void _thread_func(void *p_self);
-	void thread_func();
+	void _thread_func();
 
 public:
 	virtual double get_sample_rate() const;

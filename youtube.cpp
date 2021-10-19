@@ -585,7 +585,12 @@ void yt::YouTube::_thread_download_cache(const String p_playback_url, const Stri
 }
 
 void yt::YouTube::download_cache(const String p_playback_url, const String p_local_path) {
-	task_threads.push_back(std::thread(&yt::YouTube::_thread_download_cache, this, p_playback_url, p_local_path));
+	// Only download playback if we are not already downloading it.
+	static Set<String> downloading_cache;
+	if(!downloading_cache.has(p_local_path)) {
+		downloading_cache.insert(p_local_path);
+		task_threads.push_back(std::thread(&yt::YouTube::_thread_download_cache, this, p_playback_url, p_local_path));
+	}
 }
 
 yt::YouTube::YouTube() {
@@ -601,195 +606,173 @@ yt::YouTube::~YouTube() {
 	singleton = nullptr;
 }
 
-void yt::Player::_thread_func(void *p_self) {
-	Player *const self = (Player *)p_self;
-	self->thread_func();
-}
-
 // Hours spent: 16
-void yt::Player::thread_func() {
-	const String local_path = String("user://youtube_cache/{0}.webm").format(varray(id));
+void yt::Player::_thread_func() {
+	auto fetch_scrambler_funcs = [&](const PlayerResponse &p_player, std::vector<ScramblerFunction> &r_scrambler) {
+		const String player_script = YouTube::get_singleton()->request(
+				YOUTUBE_HOST,
+				p_player.player_url,
+				"",
+				"",
+				yt::DEFAULT_HEADERS,
+				&terminate_thread);
 
-	auto create_local_stream = [&]() {
-		playback.stream = new LocalStream(local_path);
-		playback.decoder = new webm::Decoder(playback.stream);
-		playback.decoder->seek(playback.start_pos);
-		playback.ready = true;
+		ERR_FAIL_COND_MSG(player_script.empty(), "Player script is empty.");
+
+		const String scrambler_body = regex_match(
+				R"X((?:\w+)=function\(\w+\){(\w+)=\1\.split\(\x22{2}\);(.*?;)return\s+\1\.join\(\x22{2}\)})X",
+				player_script,
+				2);
+		const String scrambler_obj_name = regex_match(
+				R"X(([\$_\w]+).\w+\(\w+,\d+\);)X",
+				scrambler_body);
+
+		const String scrambler_definition = regex_match(
+				String(R"X((?s)var\s+{0}=\{(\w+:function\(\w+(,\w+)?\)\{(.*?)\}),?\};)X").format(varray(scrambler_obj_name)),
+				player_script);
+
+		const Vector<String> statements = scrambler_body.split(";", false);
+		for (int statement_index = 0; statement_index < statements.size(); ++statement_index) {
+			const String statement = statements[statement_index];
+
+			const String func_name = regex_match(
+					R"X(\w+(?:.|\[)(\"?\w+(?:\")?)\]?\()X",
+					statement);
+
+			const String slice_match = regex_match(
+					String(R"X({0}:\bfunction\b\([a],b\).(\breturn\b)?.?\w+\.)X").format(varray(func_name)),
+					scrambler_definition,
+					0);
+			if (!slice_match.empty()) {
+				int64_t index = regex_match(
+						R"X(\(\w+,(\d+)\))X",
+						statement)
+										.to_int64();
+
+				r_scrambler.emplace_back(ScramblerFunction::Type::SLICE, index);
+				continue;
+			}
+
+			const String swap_match = regex_match(
+					String(R"X({0}:\bfunction\b\(\w+\,\w\).\bvar\b.\bc=a\b)X").format(varray(func_name)),
+					scrambler_definition,
+					0);
+			if (!swap_match.empty()) {
+				int64_t index = regex_match(
+						R"X(\(\w+,(\d+)\))X",
+						statement)
+										.to_int64();
+
+				r_scrambler.emplace_back(ScramblerFunction::Type::SWAP, index);
+				continue;
+			}
+
+			const String reverse_match = regex_match(
+					String(R"X({0}:\bfunction\b\(\w+\))X").format(varray(func_name)),
+					scrambler_definition,
+					0);
+			if (!reverse_match.empty()) {
+				r_scrambler.emplace_back(ScramblerFunction::Type::REVERSE, 0);
+				continue;
+			}
+		}
 	};
 
-	auto create_youtube_stream = [&]() {
-		auto fetch_scrambler_funcs = [&](const PlayerResponse &p_player, std::vector<ScramblerFunction> &r_scrambler) {
-			const String player_script = YouTube::get_singleton()->request(
-					YOUTUBE_HOST,
-					p_player.player_url,
-					"",
-					"",
-					yt::DEFAULT_HEADERS,
-					&terminate_thread);
+	auto parse_playback_url = [&](const PlayerResponse &p_player) -> String {
+		const Array formats = p_player.player_response.get("streamingData").get("adaptiveFormats");
 
-			ERR_FAIL_COND_MSG(player_script.empty(), "Player script is empty.");
-
-			const String scrambler_body = regex_match(
-					R"X((?:\w+)=function\(\w+\){(\w+)=\1\.split\(\x22{2}\);(.*?;)return\s+\1\.join\(\x22{2}\)})X",
-					player_script,
-					2);
-			const String scrambler_obj_name = regex_match(
-					R"X(([\$_\w]+).\w+\(\w+,\d+\);)X",
-					scrambler_body);
-
-			const String scrambler_definition = regex_match(
-					String(R"X((?s)var\s+{0}=\{(\w+:function\(\w+(,\w+)?\)\{(.*?)\}),?\};)X").format(varray(scrambler_obj_name)),
-					player_script);
-
-			const Vector<String> statements = scrambler_body.split(";", false);
-			for (int statement_index = 0; statement_index < statements.size(); ++statement_index) {
-				const String statement = statements[statement_index];
-
-				const String func_name = regex_match(
-						R"X(\w+(?:.|\[)(\"?\w+(?:\")?)\]?\()X",
-						statement);
-
-				const String slice_match = regex_match(
-						String(R"X({0}:\bfunction\b\([a],b\).(\breturn\b)?.?\w+\.)X").format(varray(func_name)),
-						scrambler_definition,
-						0);
-				if (!slice_match.empty()) {
-					int64_t index = regex_match(
-							R"X(\(\w+,(\d+)\))X",
-							statement)
-											.to_int64();
-
-					r_scrambler.emplace_back(ScramblerFunction::Type::SLICE, index);
-					continue;
-				}
-
-				const String swap_match = regex_match(
-						String(R"X({0}:\bfunction\b\(\w+\,\w\).\bvar\b.\bc=a\b)X").format(varray(func_name)),
-						scrambler_definition,
-						0);
-				if (!swap_match.empty()) {
-					int64_t index = regex_match(
-							R"X(\(\w+,(\d+)\))X",
-							statement)
-											.to_int64();
-
-					r_scrambler.emplace_back(ScramblerFunction::Type::SWAP, index);
-					continue;
-				}
-
-				const String reverse_match = regex_match(
-						String(R"X({0}:\bfunction\b\(\w+\))X").format(varray(func_name)),
-						scrambler_definition,
-						0);
-				if (!reverse_match.empty()) {
-					r_scrambler.emplace_back(ScramblerFunction::Type::REVERSE, 0);
-					continue;
+		Variant best_format;
+		uint64_t best_bitrate = 0;
+		for (int i = 0; i < formats.size(); ++i) {
+			const Variant format = formats[i];
+			if (format.get("mimeType") == "audio/webm; codecs=\"opus\"") {
+				uint64_t bitrate = format.get("bitrate");
+				if (bitrate > best_bitrate) {
+					best_format = format;
+					best_bitrate = bitrate;
 				}
 			}
-		};
-
-		auto parse_playback_url = [&](const PlayerResponse &p_player) -> String {
-			const Array formats = p_player.player_response.get("streamingData").get("adaptiveFormats");
-
-			Variant best_format;
-			uint64_t best_bitrate = 0;
-			for (int i = 0; i < formats.size(); ++i) {
-				const Variant format = formats[i];
-				if (format.get("mimeType") == "audio/webm; codecs=\"opus\"") {
-					uint64_t bitrate = format.get("bitrate");
-					if (bitrate > best_bitrate) {
-						best_format = format;
-						best_bitrate = bitrate;
-					}
-				}
-			}
-
-			bool valid;
-			String playback_url = best_format.get("url", &valid);
-			if (!valid) {
-				auto get_cipher_data = [&]() -> Dictionary {
-					const String raw = best_format.get("signatureCipher");
-					const Vector<String> elements = raw.split("&");
-					Dictionary dict;
-					for (int i = 0; i < elements.size(); ++i) {
-						const Vector<String> pair = elements[i].split("=");
-						const String key = pair[0].replace("+", " ").http_unescape();
-						const String value = pair[1].replace("+", " ").http_unescape();
-						dict[key] = value;
-					}
-
-					return dict;
-				};
-
-				const Dictionary cipher_data = get_cipher_data();
-
-				playback_url = cipher_data["url"];
-				const String signature_param = cipher_data["sp"];
-				const String signature_scrambled = cipher_data["s"];
-
-				auto decipher_url = [&](const std::vector<ScramblerFunction> &p_scrambler) {
-					String signature = signature_scrambled;
-					for (size_t i = 0; i < p_scrambler.size(); ++i) {
-						const ScramblerFunction &func = p_scrambler[i];
-
-						switch (func.type) {
-							case ScramblerFunction::Type::SLICE: {
-								const int64_t index = func.index % signature.size();
-								signature = signature.substr(index);
-							} break;
-							case ScramblerFunction::Type::SWAP: {
-								const int64_t index = func.index % signature.size();
-
-								const CharType temp = signature[0];
-								signature[0] = signature[index];
-								signature[index] = temp;
-							} break;
-							case ScramblerFunction::Type::REVERSE: {
-								const int size = signature.size() - 1;
-								for (int index = 0; index < size / 2; ++index) {
-									const int j = size - index - 1;
-									const CharType temp = signature[index];
-									signature[index] = signature[j];
-									signature[j] = temp;
-								}
-							} break;
-						}
-					}
-
-					playback_url += vformat("&ratebypass=yes&%s=%s", signature_param, signature.http_escape());
-				};
-
-				if (scrambler_cache.empty()) {
-					MutexLock lock(scrambler_cache_mutex);
-					fetch_scrambler_funcs(p_player, scrambler_cache);
-				}
-
-				decipher_url(scrambler_cache);
-			}
-
-			return playback_url;
-		};
-
-		PlayerResponse response;
-		const bool response_flag = _fetch_player_response(id, response, &terminate_thread);
-		if (!response_flag) {
-			return;
 		}
 
-		const String playback_url = parse_playback_url(response);
+		bool valid;
+		String playback_url = best_format.get("url", &valid);
+		if (!valid) {
+			auto get_cipher_data = [&]() -> Dictionary {
+				const String raw = best_format.get("signatureCipher");
+				const Vector<String> elements = raw.split("&");
+				Dictionary dict;
+				for (int i = 0; i < elements.size(); ++i) {
+					const Vector<String> pair = elements[i].split("=");
+					const String key = pair[0].replace("+", " ").http_unescape();
+					const String value = pair[1].replace("+", " ").http_unescape();
+					dict[key] = value;
+				}
 
-		playback.stream = new HttpStream(playback_url);
-		playback.decoder = new webm::Decoder(playback.stream);
-		playback.ready = true;
+				return dict;
+			};
 
-		YouTube::get_singleton()->download_cache(playback_url, local_path);
+			const Dictionary cipher_data = get_cipher_data();
+
+			playback_url = cipher_data["url"];
+			const String signature_param = cipher_data["sp"];
+			const String signature_scrambled = cipher_data["s"];
+
+			auto decipher_url = [&](const std::vector<ScramblerFunction> &p_scrambler) {
+				String signature = signature_scrambled;
+				for (size_t i = 0; i < p_scrambler.size(); ++i) {
+					const ScramblerFunction &func = p_scrambler[i];
+
+					switch (func.type) {
+						case ScramblerFunction::Type::SLICE: {
+							const int64_t index = func.index % signature.size();
+							signature = signature.substr(index);
+						} break;
+						case ScramblerFunction::Type::SWAP: {
+							const int64_t index = func.index % signature.size();
+
+							const CharType temp = signature[0];
+							signature[0] = signature[index];
+							signature[index] = temp;
+						} break;
+						case ScramblerFunction::Type::REVERSE: {
+							const int size = signature.size() - 1;
+							for (int index = 0; index < size / 2; ++index) {
+								const int j = size - index - 1;
+								const CharType temp = signature[index];
+								signature[index] = signature[j];
+								signature[j] = temp;
+							}
+						} break;
+					}
+				}
+
+				playback_url += vformat("&ratebypass=yes&%s=%s", signature_param, signature.http_escape());
+			};
+
+			if (scrambler_cache.empty()) {
+				MutexLock lock(scrambler_cache_mutex);
+				fetch_scrambler_funcs(p_player, scrambler_cache);
+			}
+
+			decipher_url(scrambler_cache);
+		}
+
+		return playback_url;
 	};
 
-	if (FileAccess::exists(local_path)) {
-		create_local_stream();
-	} else {
-		create_youtube_stream();
+	PlayerResponse response;
+	const bool response_flag = _fetch_player_response(id, response, &terminate_thread);
+	if (!response_flag) {
+		return;
 	}
+
+	const String playback_url = parse_playback_url(response);
+
+	playback.stream = new HttpStream(playback_url);
+	playback.decoder = new webm::Decoder(playback.stream);
+	playback.ready = true;
+
+	YouTube::get_singleton()->download_cache(playback_url, local_path);
 }
 
 double yt::Player::get_sample_rate() const {
@@ -835,18 +818,31 @@ void yt::Player::sample(
 			p_buffer[i] = audio::AudioFrame();
 		}
 		r_active = true;
-		r_buffering = ++playback.sample_attempts > 3;
+		r_buffering = true;
 		return;
 	}
 
 	playback.decoder->sample(p_buffer, p_frames, r_active, r_buffering);
 }
 
-yt::Player::Player(const String p_id) :
-		id(p_id), thread(std::thread(_thread_func, this)) {
+yt::Player::Player(const String p_id) : id(p_id) {
+	auto create_local_stream = [&]() {
+		playback.stream = new LocalStream(local_path);
+		playback.decoder = new webm::Decoder(playback.stream);
+		playback.decoder->seek(playback.start_pos);
+		playback.ready = true;
+	};
+	if (FileAccess::exists(local_path)) {
+		create_local_stream();
+	} else {
+		thread = std::thread(&yt::Player::_thread_func, this);
+	}
+
 }
 
 yt::Player::~Player() {
 	terminate_thread = true;
-	thread.join();
+	if(thread.joinable()) {
+		thread.join();
+	}
 }

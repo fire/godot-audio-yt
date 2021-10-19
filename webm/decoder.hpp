@@ -46,6 +46,8 @@ class Decoder : public audio::Decoder {
 
 	struct DecoderContext {
 		bool ready = false;
+		uint64_t sample_attempts = 0;
+		
 		uint64_t time_scale;
 		double duration;
 		uint64_t track;

@@ -70,6 +70,13 @@ void HttpStream::_poll_request() {
 						}
 					}
 
+					if(redirect.empty()) {
+						for(int i = 0; i < headers.size(); ++i) {
+							print_error(headers[i]);
+						}
+						ERR_FAIL_MSG("No redirect header given.");
+					}
+
 					if (redirect.begins_with("//")) {
 						redirect = redirect.insert(0, "https:");
 					} else if (redirect.begins_with("/")) {

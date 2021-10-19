@@ -452,6 +452,17 @@ void webm::Decoder::thread_func() {
 			} else {
 				// We do not have this cluster in the cache, so load it.
 
+				{
+					std::lock_guard<std::mutex> lock(context.mutex);
+
+					for (const std::vector<const ebml::Element *> &cluster : context.clusters) {
+						context.delete_cluster(cluster);
+					}
+					context.clusters.clear();
+
+					context.opus_pcm_size = 0;
+				}
+
 				const ebml::Element *element;
 				uint64_t pos = cue.pos;
 				stream->read_element(pos, element);
@@ -461,18 +472,11 @@ void webm::Decoder::thread_func() {
 
 				std::lock_guard<std::mutex> lock(context.mutex);
 
-				for (const std::vector<const ebml::Element *> &cluster : context.clusters) {
-					context.delete_cluster(cluster);
-				}
-				context.clusters.clear();
-
 				context.clusters.push_back(blocks);
 
 				context.current_cluster = cue_index;
 				context.active_cluster = 0;
 				context.active_block = percent * blocks.size();
-
-				context.opus_pcm_size = 0;
 			}
 		}
 
@@ -546,7 +550,9 @@ void webm::Decoder::sample(
 			p_buffer[i] = audio::AudioFrame();
 		}
 		r_active = true;
-		r_buffering = true;
+		if(++context.sample_attempts > 10) {
+			r_buffering = true;
+		}
 		return;
 	}
 
@@ -611,7 +617,11 @@ void webm::Decoder::sample(
 			for (; pos < p_frames; ++pos) {
 				p_buffer[pos] = audio::AudioFrame();
 			}
-			break;
+			r_active = true;
+			if(++context.sample_attempts > 10) {
+				r_buffering = true;
+			}
+			return;
 		}
 
 		if (context.opus_pcm_index >= context.opus_pcm_size) {
@@ -651,11 +661,12 @@ void webm::Decoder::sample(
 			position += copy / get_sample_rate();
 			pos += copy;
 			context.opus_pcm_index += copy;
+			r_buffering = false;
 		}
 	}
 
 	r_active = context.current_cluster + context.active_cluster < context.cues.size();
-	r_buffering = false;
+	context.sample_attempts = 0;
 }
 
 webm::Decoder::Decoder(ebml::Stream *const p_stream) :

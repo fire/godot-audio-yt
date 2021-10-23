@@ -837,7 +837,6 @@ yt::Player::Player(const String p_id) : id(p_id) {
 	} else {
 		thread = std::thread(&yt::Player::_thread_func, this);
 	}
-
 }
 
 yt::Player::~Player() {

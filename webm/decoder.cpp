@@ -605,6 +605,10 @@ void webm::Decoder::sample(
 				context.opus_pcm_size = samples;
 			}
 				return true;
+			case ELEMENT_BLOCK_GROUP: {
+				// No behaviour for BlockGroup.
+			}
+				return true;
 			default: {
 				std::cerr << "Invalid audio block: " << p_block->reg.name << "." << std::endl;
 			}
@@ -613,6 +617,12 @@ void webm::Decoder::sample(
 	};
 
 	for (uint64_t pos = 0; pos < p_frames;) {
+		if(context.current_cluster + context.active_cluster >= context.cues.size()) {
+			r_active = false;
+			r_buffering = false;
+			return;
+		}
+
 		if (seeking.job || context.active_cluster >= context.clusters.size()) {
 			for (; pos < p_frames; ++pos) {
 				p_buffer[pos] = audio::AudioFrame();

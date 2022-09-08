@@ -10,14 +10,15 @@
 extends Node
 
 # There should be an AudioStreamPlayer child of this node.
-onready var player: AudioStreamPlayer = $AudioStreamPlayer
+@onready var player: AudioStreamPlayer = $AudioStreamPlayer
 # Reference to audio stream.
 var stream := AudioStreamYT.new()
 
 func _ready() -> void:
+	var task : YouTubeGetVideoTask = YouTube.get_video("QPKKQnijnsM")
 	# Get the YouTube video info.
 	# Note: This is not required to play the audio.
-	var info: VideoData = yield(YouTube.get_video("QPKKQnijnsM"), "completed")
+	var info: VideoData = await task.completed
 	print(info.channel, ": ", info.title)
 
 	# Set the YouTube ID.
@@ -29,6 +30,8 @@ func _ready() -> void:
 
 # This part is optional, but useful to show the module's capabilities.
 func _process(_delta: float) -> void:
+	if stream.get_length() == 0:
+		return
 	# Seek left and right 5 seconds.
 	if Input.is_action_just_pressed("ui_left"):
 		player.seek(player.get_playback_position() - 5.0)
@@ -36,8 +39,7 @@ func _process(_delta: float) -> void:
 		player.seek(player.get_playback_position() + 5.0)
 
 	# Print current time and duration.
-	print("%.3f/%.3f" % [player.get_playback_position(), stream.get_length()])
-
+	print("_process %.3f/%.3f" % [player.get_playback_position(), stream.get_length()])
 ```
 
 ### Thanks

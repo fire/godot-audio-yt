@@ -1,14 +1,13 @@
 #include "local_stream.hpp"
 
-#include "core/variant.h"
+#include "core/variant/variant.h"
 
 void LocalStream::read(uint8_t *const p_buffer, uint64_t &p_pos, const uint64_t p_bytes) {
 	if (p_pos < 0 || p_pos + p_bytes > get_length()) {
 		for (uint64_t i = 0; i < p_bytes; ++i) {
 			p_buffer[i] = 0;
 		}
-		ERR_FAIL_MSG(
-				String() + "Access out of bounds: Position: " + Variant(p_pos) + ", Buffer Size: " + Variant(p_bytes) + ", Total Size: " + Variant(get_length()) + ".");
+		ERR_FAIL_MSG(vformat("Access out of bounds: Position: %d , Buffer Size: %d, Total Size: %d.", p_pos, p_bytes, get_length()));
 	}
 
 	file->seek(p_pos);
@@ -21,7 +20,7 @@ void LocalStream::read(uint8_t *const p_buffer, uint64_t &p_pos, const uint64_t 
 }
 
 uint64_t LocalStream::get_length() {
-	return file->get_len();
+	return file->get_length();
 }
 
 LocalStream::LocalStream(const String p_path) :
@@ -30,6 +29,4 @@ LocalStream::LocalStream(const String p_path) :
 }
 
 LocalStream::~LocalStream() {
-	file->close();
-	memdelete(file);
 }

@@ -27,16 +27,16 @@ class AudioStreamPlaybackYT : public AudioStreamPlaybackResampled {
 protected:
 	static void _bind_methods();
 
-	virtual void _mix_internal(AudioFrame *p_buffer, int p_frames);
-	virtual float get_stream_sampling_rate();
+	virtual int _mix_internal(AudioFrame *p_buffer, int p_frames) override;
+	virtual float get_stream_sampling_rate() override;
 
 public:
-	virtual void start(float p_from_pos = 0.0);
-	virtual void stop();
-	virtual bool is_playing() const;
-	virtual int get_loop_count() const;
-	virtual float get_playback_position() const;
-	virtual void seek(float p_time);
+	virtual void start(float p_from_pos = 0.0) override;
+	virtual void stop() override;
+	virtual bool is_playing() const override;
+	virtual int get_loop_count() const override;
+	virtual float get_playback_position() const override;
+	virtual void seek(float p_time) override;
 
 	bool is_buffering() const;
 
@@ -59,7 +59,7 @@ public:
 	void create(const String &p_id);
 	String get_id() const;
 
-	virtual Ref<AudioStreamPlayback> instance_playback();
+	virtual Ref<AudioStreamPlayback> instantiate_playback();
 	virtual String get_stream_name() const;
 
 	virtual float get_length() const;

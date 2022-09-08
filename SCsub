@@ -3,12 +3,12 @@
 Import("env")
 Import("env_modules")
 
-env_gdaudioyt = env_modules.Clone()
+env_audio_yt = env_modules.Clone()
 
-env_gdaudioyt.add_source_files(env.modules_sources, "*.cpp")
-env_gdaudioyt.add_source_files(env.modules_sources, "audio/*.cpp")
-env_gdaudioyt.add_source_files(env.modules_sources, "ebml/*.cpp")
-env_gdaudioyt.add_source_files(env.modules_sources, "webm/*.cpp")
+env_audio_yt.add_source_files(env.modules_sources, "*.cpp")
+env_audio_yt.add_source_files(env.modules_sources, "audio/*.cpp")
+env_audio_yt.add_source_files(env.modules_sources, "ebml/*.cpp")
+env_audio_yt.add_source_files(env.modules_sources, "webm/*.cpp")
 
-env_gdaudioyt.Prepend(CPPPATH=["#modules/gdaudioyt"])
-env_gdaudioyt.Prepend(CPPPATH=["#thirdparty/opus"])
+env_audio_yt.Prepend(CPPPATH=["."])
+env_audio_yt.Prepend(CPPPATH=["#thirdparty/opus"])

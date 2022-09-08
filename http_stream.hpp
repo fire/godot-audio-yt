@@ -1,8 +1,9 @@
 #pragma once
 
 #include "core/io/http_client.h"
-#include "core/variant.h"
+#include "core/variant/variant.h"
 #include "ebml/stream.hpp"
+#include "core/io/http_client_tcp.h"
 
 class HttpStream : public ebml::Stream {
 	const String url;
@@ -12,10 +13,10 @@ class HttpStream : public ebml::Stream {
 	String host;
 	String path;
 
-	HTTPClient client;
+	Ref<HTTPClientTCP> client;
 
 	uint64_t cache_pos = 0;
-	PoolByteArray cache_buffer;
+	PackedByteArray cache_buffer;
 
 	bool has_content_length = false;
 	uint64_t content_length = 0;

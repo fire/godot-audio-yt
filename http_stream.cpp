@@ -1,6 +1,7 @@
 #include "http_stream.hpp"
 
 #include <iostream>
+#include <stdint.h>
 
 void HttpStream::_poll_request() {
 	if (!has_parsed) {
@@ -18,24 +19,24 @@ void HttpStream::_poll_request() {
 		if (has_content_length && cache_pos >= content_length) {
 			ERR_FAIL_MSG("Request position out of bounds.");
 		}
-		HTTPClient::Status status = client.get_status();
+		HTTPClient::Status status = client->get_status();
 		switch (status) {
 			case HTTPClient::STATUS_DISCONNECTED: {
-				Error err = client.connect_to_host(scheme + host);
+				Error err = client->connect_to_host(scheme + host);
 				if (err != OK) {
 					ERR_FAIL_MSG("Failed to connect to host.");
 				}
 			} break;
 			case HTTPClient::STATUS_RESOLVING: {
 				OS::get_singleton()->delay_usec(1);
-				client.poll();
+				client->poll();
 			} break;
 			case HTTPClient::STATUS_CANT_RESOLVE: {
 				ERR_FAIL_MSG("Cannot resolve host.");
 			} break;
 			case HTTPClient::STATUS_CONNECTING: {
 				OS::get_singleton()->delay_usec(1);
-				client.poll();
+				client->poll();
 			} break;
 			case HTTPClient::STATUS_CANT_CONNECT: {
 				ERR_FAIL_MSG("Cannot connect.");
@@ -43,19 +44,19 @@ void HttpStream::_poll_request() {
 			case HTTPClient::STATUS_CONNECTED: {
 				Vector<String> headers;
 				headers.push_back(vformat("Range: bytes=%s-", cache_pos + cache_buffer.size()));
-				Error err = client.request(HTTPClient::Method::METHOD_GET, path, headers);
+				Error err = client->request(HTTPClient::Method::METHOD_GET, path, headers, cache_buffer.ptrw(), cache_buffer.size());
 				if (err != OK) {
 					ERR_FAIL_MSG("Failed to read from server.");
 				}
 			} break;
 			case HTTPClient::STATUS_REQUESTING: {
 				OS::get_singleton()->delay_usec(1);
-				client.poll();
+				client->poll();
 			} break;
 			case HTTPClient::STATUS_BODY: {
-				if (client.get_response_body_length() == 0) {
+				if (client->get_response_body_length() == 0) {
 					List<String> headers;
-					const Error headers_err = client.get_response_headers(&headers);
+					const Error headers_err = client->get_response_headers(&headers);
 					if (headers_err != OK) {
 						ERR_FAIL_MSG("Failed to read headers.");
 					}
@@ -65,12 +66,12 @@ void HttpStream::_poll_request() {
 						const String header = headers[i];
 						if (header.begins_with("Location: ")) {
 							redirect = header.substr(10);
-							client.close();
+							client->close();
 							break;
 						}
 					}
 
-					if(redirect.empty()) {
+					if(redirect.is_empty()) {
 						for(int i = 0; i < headers.size(); ++i) {
 							print_error(headers[i]);
 						}
@@ -89,7 +90,7 @@ void HttpStream::_poll_request() {
 						ERR_FAIL_MSG("Failed to parse redirect url.");
 					}
 
-					if (!redirect.empty()) {
+					if (!redirect.is_empty()) {
 						continue;
 					}
 
@@ -98,16 +99,16 @@ void HttpStream::_poll_request() {
 
 				if (!has_content_length) {
 					has_content_length = true;
-					content_length = cache_pos + client.get_response_body_length();
+					content_length = cache_pos + client->get_response_body_length();
 				}
 
 				OS::get_singleton()->delay_usec(1);
-				client.poll();
+				client->poll();
 
 				return;
 			} break;
 			case HTTPClient::STATUS_CONNECTION_ERROR: {
-				client.close();
+				client->close();
 			} break;
 			default: {
 				ERR_FAIL_MSG("Invalid connection status.");
@@ -126,7 +127,7 @@ void HttpStream::read(uint8_t *const p_buffer, uint64_t &p_pos, const uint64_t p
 	int64_t offset = p_pos - cache_pos;
 	if (offset < 0 || offset - int64_t(cache_buffer.size()) > int64_t(RESET_IF_AHEAD_BY)) {
 		// Start the request from scratch.
-		client.close();
+		client->close();
 		cache_pos = p_pos;
 		cache_buffer.resize(0);
 		offset = 0;
@@ -134,10 +135,10 @@ void HttpStream::read(uint8_t *const p_buffer, uint64_t &p_pos, const uint64_t p
 
 	// Fill up the buffer using content from the request.
 	while (uint64_t(cache_buffer.size()) < offset + p_bytes) {
-		if (client.get_status() != HTTPClient::STATUS_BODY) {
+		if (client->get_status() != HTTPClient::STATUS_BODY) {
 			_poll_request();
 		}
-		const PoolByteArray &chunk = client.read_response_body_chunk();
+		const PackedByteArray &chunk = client->read_response_body_chunk();
 		cache_buffer.append_array(chunk);
 	}
 
@@ -148,7 +149,7 @@ void HttpStream::read(uint8_t *const p_buffer, uint64_t &p_pos, const uint64_t p
 
 	const int64_t trim_amount = offset - TRIM_CACHE_AFTER;
 	if (trim_amount > 0) {
-		cache_buffer = cache_buffer.subarray(trim_amount, -1);
+		cache_buffer = cache_buffer.slice(trim_amount);
 	}
 
 	// Since the read was successful, move the position.

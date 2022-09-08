@@ -4,9 +4,9 @@
 #include "ebml/stream.hpp"
 #include "webm/decoder.hpp"
 
-#include "core/map.h"
-#include "core/reference.h"
-#include "core/variant.h"
+#include "core/templates/hash_map.h"
+#include "core/object/ref_counted.h"
+#include "core/variant/variant.h"
 
 #include <functional>
 
@@ -42,15 +42,15 @@ struct PlayerResponse {
 	Variant player_response;
 };
 
-class VideoData : public Reference {
-	GDCLASS(VideoData, Reference);
+class VideoData : public RefCounted {
+	GDCLASS(VideoData, RefCounted);
 
 	String id;
 	String channel;
 	String title;
-	double duration;
-	int64_t views;
-	bool from_artist;
+	double duration = 0.0;
+	int64_t views = 0;
+	bool from_artist = false;
 
 protected:
 	static void _bind_methods();
@@ -86,8 +86,8 @@ public:
 
 class YouTube;
 
-class YouTubeSearchTask : public Reference {
-	GDCLASS(YouTubeSearchTask, Reference);
+class YouTubeSearchTask : public RefCounted {
+	GDCLASS(YouTubeSearchTask, RefCounted);
 
 protected:
 	static void _bind_methods();
@@ -96,8 +96,8 @@ public:
 	String query;
 };
 
-class YouTubeGetVideoTask : public Reference {
-	GDCLASS(YouTubeGetVideoTask, Reference);
+class YouTubeGetVideoTask : public RefCounted {
+	GDCLASS(YouTubeGetVideoTask, RefCounted);
 
 protected:
 	static void _bind_methods();

@@ -6,16 +6,14 @@ void AudioStreamPlaybackYT::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("is_buffering"), &AudioStreamPlaybackYT::is_buffering);
 }
 
-void AudioStreamPlaybackYT::_mix_internal(AudioFrame *p_buffer, int p_frames) {
-	audio::AudioFrame *buffer = (audio::AudioFrame *)AudioServer::get_singleton()->audio_data_alloc(sizeof(audio::AudioFrame) * p_frames);
+int AudioStreamPlaybackYT::_mix_internal(AudioFrame *p_buffer, int p_frames) {
+	audio::AudioFrame *buffer = (audio::AudioFrame *)p_buffer;
 	decoder->sample(buffer, p_frames, active, buffering);
 
 	for (int i = 0; i < p_frames; ++i) {
 		const audio::AudioFrame frame = buffer[i];
 		p_buffer[i] = AudioFrame(frame.l, frame.r);
 	}
-
-	AudioServer::get_singleton()->audio_data_free(buffer);
 
 	const double duration = decoder->get_duration();
 	if (duration > 0.0) {
@@ -33,13 +31,10 @@ float AudioStreamPlaybackYT::get_stream_sampling_rate() {
 
 void AudioStreamPlaybackYT::start(float p_from_pos) {
 	active = true;
-
-	if (decoder == nullptr) {
-		decoder = new yt::Player(base->get_id());
-	}
-
+	delete decoder;
+	decoder = new yt::Player(base->get_id().utf8().get_data());
 	seek(p_from_pos);
-	_begin_resample();
+	begin_resample();
 }
 
 void AudioStreamPlaybackYT::stop() {
@@ -71,6 +66,7 @@ bool AudioStreamPlaybackYT::is_buffering() const {
 }
 
 AudioStreamPlaybackYT::AudioStreamPlaybackYT() {
+	decoder = new yt::Player("");
 }
 
 AudioStreamPlaybackYT::~AudioStreamPlaybackYT() {
@@ -85,8 +81,8 @@ void AudioStreamYT::_bind_methods() {
 }
 
 void AudioStreamYT::create(const String &p_id) {
-	ERR_FAIL_COND_MSG(!id.empty(), "Stream has already been created.");
-	ERR_FAIL_COND_MSG(p_id.empty(), "Given id is empty.");
+	ERR_FAIL_COND_MSG(!id.is_empty(), "Stream has already been created.");
+	ERR_FAIL_COND_MSG(p_id.is_empty(), "Given id is empty.");
 
 	id = p_id;
 }
@@ -95,12 +91,12 @@ String AudioStreamYT::get_id() const {
 	return id;
 }
 
-Ref<AudioStreamPlayback> AudioStreamYT::instance_playback() {
+Ref<AudioStreamPlayback> AudioStreamYT::instantiate_playback() {
 	Ref<AudioStreamPlaybackYT> playback;
 
-	ERR_FAIL_COND_V_MSG(id.empty(), playback, "No source specified. Please call the 'create' method.");
+	ERR_FAIL_COND_V_MSG(id.is_empty(), playback, "No source specified. Please call the 'create' method.");
 
-	playback.instance();
+	playback.instantiate();
 	playback->base = Ref<AudioStreamYT>(this);
 	return playback;
 }
